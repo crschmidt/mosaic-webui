@@ -4,13 +4,35 @@
    <link rel="stylesheet" href="http://oam.osgeo.org/static/website.css" type="text/css" />
    <script src="http://oam.osgeo.org/static/ol/OpenLayers.js"></script>
    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>
-   <script type="text/javascript" src="http://oam.osgeo.org/static/js/map.js"></script>
    <script type="text/javascript" src="http://oam.osgeo.org/static/js/jquery.inlineedit.js"></script>
    <script type="text/javascript" src="http://oam.osgeo.org/static/js/jquery.json-2.2.min.js"></script>
    <link type="text/css" href="http://oam.osgeo.org/static/jq/css/ui-lightness/jquery-ui-1.8.13.custom.css" rel="stylesheet" />   
    <script type="text/javascript" src="http://oam.osgeo.org/static/jq/jquery-ui-1.8.13.custom.min.js"></script>
    
 <script>
+
+var OAMFormat = OpenLayers.Class(OpenLayers.Format.JSON, {
+    'read': function(json,filter) {
+        if (typeof json == "string") {
+            obj = OpenLayers.Format.JSON.prototype.read.apply(this,
+                                                              [json, filter]);
+        } else { 
+            obj = json;
+        }    
+        if(!obj) {
+            OpenLayers.Console.error("Bad JSON: " + json);
+        }
+        var features = [];
+        for (i = 0; i < obj.images.length; i++) {
+            var image = obj.images[i];
+            var bounds = OpenLayers.Bounds.fromArray(image.bbox);
+            var f = new OpenLayers.Feature.Vector(bounds.toGeometry());
+            f.attributes = image;
+            features.push(f);
+        }
+        return features;
+    }
+});
 function createMap(url, div){
     var map = new OpenLayers.Map( 'map', {displayProjection: new OpenLayers.Projection("EPSG:4326")} );
     var layer = new OpenLayers.Layer.OSM("OSM");
@@ -43,7 +65,22 @@ function createMap(url, div){
 
 function handleOAMData(request) {
     var f=  new OAMFormat();
-    var data = f.read(request.responseText);
+    data = f.read(request.responseText);
+    var sidebar = document.getElementById("sidebar");
+    var map = document.getElementById("map");
+    map.style.width="68%";
+    sidebar.style.display = "";
+    sidebar.innerHTML = "";
+    var html = document.createElement("ul");
+    for (var i = 0; i < data.length; i++) {
+        var item = data[i];
+        var li = document.createElement("li");
+        var path = item.attributes.url.split("/");
+        path = path[path.length-1];
+        li.appendChild(document.createTextNode(path + " (" + item.attributes.width + ", " + item.attributes.height+")"));
+        html.appendChild(li)
+    }
+    sidebar.appendChild(html);
     alert(data.length + " features");
 }
 
@@ -55,6 +92,7 @@ function boundsReceived(bounds) {
         url: url,
         callback: handleOAMData
     });
+    control.deactivate();
 }
 
 function start() { 
@@ -65,8 +103,7 @@ function start() {
             // this Handler.Box will intercept the shift-mousedown
             // before Control.MouseDefault gets to see it
             this.handler = new OpenLayers.Handler.Box( control,
-                {"done": this.notice},
-                {keyMask: OpenLayers.Handler.MOD_SHIFT});
+                {"done": this.notice});
         },
 
         notice: function (bounds) {
@@ -85,9 +122,11 @@ function start() {
    <h1><a href="/">OpenAerialMap</a></h1>
  </div>
  <div id="mainnav" class="nav">
- </div>
+<a href="#" onclick="control.activate(); return false;">Draw Box</a>
+</div>
  <div id="main">
  
+<div id="sidebar" style="float: right; width: 30%; display:none; overflow: auto; height: 80%;"></div>
 <div id="map" style="width: 99%; height: 80%"></div>
 </body></html>
 

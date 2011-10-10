@@ -17,8 +17,10 @@ def fetch_image_files(client, bbox, opts):
     for image in client.images_by_bbox(bbox, **args):
         target = image.path.split("/")[-1]
         if opts.dest:
-            meter = urlgrabber.progress.text_progress_meter()
             target = os.path.join(opts.dest, target)
+            if os.path.exists(target):
+                continue
+            meter = urlgrabber.progress.text_progress_meter()
             print >>sys.stderr, image.path, "->", target
             urlgrabber.urlgrab(str(image.path), target, progress_obj=meter)
         else:
@@ -35,6 +37,7 @@ def run(bbox):
     parser.add_option("-d", "--destination", dest="dest", default=None, help="Destination directory for image downloads")
     opts, args = parser.parse_args()
     
+    opts.dest = "/mnt/data/images"
     client = oam.build_client(opts)
     files = fetch_image_files(client, bbox, opts)
     out = {}
@@ -44,11 +47,12 @@ def run(bbox):
     
     l = sorted(out.items(), key=lambda x: x[1])
     if opts.dest:
-        f = open("%s/output.map" % (opts.dest), "w")
+        f = open("/mnt/data/2.map" % (opts.dest), "w")
         f.write("""MAP\nWEB\nMETADATA\n"ows_enable_request" "*"\nEND\nEND\nPROJECTION\n"init=epsg:4326"\nEND\n""")
         for item in l:
             path = item[0].split("/")[-1]
-            f.write("""LAYER\nNAME "%s" \n STATUS ON \n DATA "%s" \n TYPE RASTER \n END\n""" % (path, path))
+            f.write("""LAYER\nNAME "%s" \n STATUS ON \n DATA "/mnt/data/images/%s" \n TYPE RASTER \n END\n""" % (path, path))
         f.write("END")
-    print ",".join(map(str, imgdata['bbox']))
-    print "shp2img -i image/jpeg -m oam.map -e %s -l oam -s %s %s" % (" ".join(map(str, imgdata['bbox'])), imgdata['width'], imgdata['height']) 
+    
+if __name__ == "__main__":
+    run(*sys.argv[1:])
