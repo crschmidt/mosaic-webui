@@ -77,17 +77,22 @@ function handleOAMData(request) {
         var li = document.createElement("li");
         var path = item.attributes.url.split("/");
         path = path[path.length-1];
-        li.appendChild(document.createTextNode(path + " (" + item.attributes.width + ", " + item.attributes.height+")"));
+        var a = document.createElement("a")
+        a.href="http://oam.osgeo.org/image/" + item.attributes.id + "/";
+        a.appendChild(document.createTextNode(path));
+        li.appendChild(a)
+        li.appendChild(document.createTextNode(" (" + item.attributes.width + "x" + item.attributes.height+")"));
         html.appendChild(li)
     }
     sidebar.appendChild(html);
-    alert(data.length + " features");
+    sidebar.innerHTML += "<br />"+bbox;
 }
 
 function boundsReceived(bounds) {
     var ll = map.getLonLatFromPixel(new OpenLayers.Pixel(bounds.left, bounds.bottom)).transform(new OpenLayers.Projection("EPSG:900913"), new OpenLayers.Projection("EPSG:4326")); 
     var ur = map.getLonLatFromPixel(new OpenLayers.Pixel(bounds.right, bounds.top)).transform(new OpenLayers.Projection("EPSG:900913"), new OpenLayers.Projection("EPSG:4326")); 
     var url = "http://oam.osgeo.org/api/image/?bbox=" + ll.toShortString()+","+ur.toShortString();
+    bbox = ll.toShortString()+","+ur.toShortString()
     new OpenLayers.Request.GET({
         url: url,
         callback: handleOAMData
@@ -129,4 +134,3 @@ function start() {
 <div id="sidebar" style="float: right; width: 30%; display:none; overflow: auto; height: 80%;"></div>
 <div id="map" style="width: 99%; height: 80%"></div>
 </body></html>
-
