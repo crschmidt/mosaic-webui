@@ -1,0 +1,132 @@
+<html>
+ <head>
+   <title>Home &#x2014; OpenAerialMap</title>
+   <link rel="stylesheet" href="http://oam.osgeo.org/static/website.css" type="text/css" />
+   <script src="http://oam.osgeo.org/static/ol/OpenLayers.js"></script>
+   
+<script>
+
+var OAMFormat = OpenLayers.Class(OpenLayers.Format.JSON, {
+    'read': function(json,filter) {
+        if (typeof json == "string") {
+            obj = OpenLayers.Format.JSON.prototype.read.apply(this,
+                                                              [json, filter]);
+        } else { 
+            obj = json;
+        }    
+        if(!obj) {
+            OpenLayers.Console.error("Bad JSON: " + json);
+        }
+        var features = [];
+        for (i = 0; i < obj.images.length; i++) {
+            var image = obj.images[i];
+            var bounds = OpenLayers.Bounds.fromArray(image.bbox);
+            var f = new OpenLayers.Feature.Vector(bounds.toGeometry());
+            f.attributes = image;
+            features.push(f);
+        }
+        return features;
+    }
+});
+function createMap(url, div){
+    var map = new OpenLayers.Map( 'map', {displayProjection: new OpenLayers.Projection("EPSG:4326")} );
+    var layer = new OpenLayers.Layer.OSM("OSM");
+    map.addLayer(layer);
+    layer = new OpenLayers.Layer.Vector("", {
+        strategies: [new OpenLayers.Strategy.BBOX({resFactor: 1.1,ratio:1.0})],
+        protocol: new OpenLayers.Protocol.HTTP({
+           url: url,
+           format: new OAMFormat()
+        }),
+         styleMap: new OpenLayers.StyleMap({'strokeColor': '#000000', 'strokeWidth': 2, fillOpacity: 0}),
+        'renderers': ['Canvas', 'VML']
+        });
+    map.addLayer(layer);
+    layer.events.register("loadend", layer, function() {
+        if (map.getCenter().lat == 0 && map.getCenter().lon == 0) {
+          layer.map.zoomToExtent(layer.getDataExtent());
+        }
+    });
+//    map.addControl(new OpenLayers.Control.Permalink());
+
+    if (!map.getCenter()) {
+        map.zoomToMaxExtent();
+    } else {
+        // kick the bbox strategy
+        map.setCenter();
+    }
+    return map;
+}
+
+function handleOAMData(request) {
+    var f=  new OAMFormat();
+    data = f.read(request.responseText);
+    var sidebar = document.getElementById("sidebar");
+    var map = document.getElementById("map");
+    map.style.width="68%";
+    sidebar.style.display = "";
+    sidebar.innerHTML = "";
+    var html = document.createElement("ul");
+    for (var i = 0; i < data.length; i++) {
+        var item = data[i];
+        var li = document.createElement("li");
+        var path = item.attributes.url.split("/");
+        path = path[path.length-1];
+        var a = document.createElement("a")
+        a.href="http://oam.osgeo.org/image/" + item.attributes.id + "/";
+        a.appendChild(document.createTextNode(path));
+        li.appendChild(a)
+        li.appendChild(document.createTextNode(" (" + item.attributes.width + "x" + item.attributes.height+")"));
+        html.appendChild(li)
+    }
+    sidebar.appendChild(html);
+    sidebar.innerHTML += "<br />"+bbox;
+    sidebar.innerHTML += '<form action="/request/" method="POST"><input type="hidden" name="bbox" value="'+bbox.replace(' ','')+'" /><input type="submit" />';
+}
+
+function boundsReceived(bounds) {
+    var ll = map.getLonLatFromPixel(new OpenLayers.Pixel(bounds.left, bounds.bottom)).transform(new OpenLayers.Projection("EPSG:900913"), new OpenLayers.Projection("EPSG:4326")); 
+    var ur = map.getLonLatFromPixel(new OpenLayers.Pixel(bounds.right, bounds.top)).transform(new OpenLayers.Projection("EPSG:900913"), new OpenLayers.Projection("EPSG:4326")); 
+    var url = "http://oam.osgeo.org/api/image/?bbox=" + ll.toShortString()+","+ur.toShortString();
+    bbox = ll.toShortString()+","+ur.toShortString()
+    new OpenLayers.Request.GET({
+        url: url,
+        callback: handleOAMData
+    });
+    control.deactivate();
+}
+
+function start() { 
+    map = createMap("http://oam.osgeo.org/api/image/?limit=250", document.getElementById("map") ); 
+    control = new OpenLayers.Control();
+    OpenLayers.Util.extend(control, {
+        draw: function () {
+            // this Handler.Box will intercept the shift-mousedown
+            // before Control.MouseDefault gets to see it
+            this.handler = new OpenLayers.Handler.Box( control,
+                {"done": this.notice});
+        },
+
+        notice: function (bounds) {
+            boundsReceived(bounds);
+        }
+    });
+    map.addControl(control);
+}
+
+
+</script>
+
+ </head>
+ <body  onload="start();">
+ <div id="header">
+   <h1><a href="/">OpenAerialMap</a></h1>
+ </div>
+ <div id="mainnav" class="nav">
+<a href="#" onclick="control.activate(); return false;">Draw Box</a>
+</div>
+ <div id="main">
+ 
+<div id="sidebar" style="float: right; width: 30%; display:none; overflow: auto; height: 80%;"></div>
+<div id="map" style="width: 99%; height: 80%"></div>
+</body></html>

@@ -1,0 +1,22 @@
+<h2>{{ request.id }}</h2>
+<p>
+ {{request.bbox}}
+</p>
+<p>
+  Fulfilled: {{ request.fulfilled}}
+</p>  
+  <!--<img src="http://ec2-107-20-0-182.compute-1.amazonaws.com/cgi-bin/mapserv?map=/mnt/data/{{request.id}}.map&request=GetMap&service=WMS&version=1.0.0&SRS=EPSG:4326&width=512&height=512&layers=oam&bbox={{request.bbox}}&FORMAT=image/jpeg" />-->
+
+  <div id="map" style="width: 512px; height: 512px">
+  </div>
+  <script src="http://openlayers.org/api/OpenLayers.js"></script>
+  <script>
+    function init() {
+    var map = new OpenLayers.Map("map", {'numZoomLevels': 23});
+    map.addControl(new OpenLayers.Control.Permalink());
+    map.addLayer(new OpenLayers.Layer.WMS("", "http://ec2-107-20-0-182.compute-1.amazonaws.com/cgi-bin/mapserv?map=/mnt/data/{{request.id}}.map", {'layers':'oam'}));
+    if (!map.getCenter()) { map.zoomToExtent(new OpenLayers.Bounds({{request.bbox}}));}
+    return map;
+    }
+    init();
+  </script>    
